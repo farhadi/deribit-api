@@ -1,0 +1,36 @@
+[package]
+name = "deribit-api"
+version = "0.1.0"
+edition = "2024"
+description = "Deribit API client"
+license = "MIT"
+repository = "https://github.com/farhadi/deribit-api"
+readme = "README.md"
+
+[features]
+default = []
+# When enabled, generate both production and testnet clients.
+# When disabled, only the production client is generated.
+testnet = []
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.47", features = ["rt", "macros"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
+thiserror = "2.0"
+futures-util = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1.47", features = ["rt-multi-thread"] }
+
+[build-dependencies]
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+anyhow = "1.0"
+serde_json = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+prettyplease = "0.2"
+syn = { version = "2.0", features = ["full"] }
+toml = "0.9"
