@@ -684,6 +684,11 @@ fn to_valid_snake_case(s: &str) -> String {
 
 fn read_manifest_spec_url() -> Option<String> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").ok()?;
+
+    if env::var("DOCS_RS").is_ok() {
+        return Some(manifest_dir + "/deribit_api_v2.json");
+    }
+
     let cargo_toml_path = Path::new(&manifest_dir).join("Cargo.toml");
     let content = fs::read_to_string(&cargo_toml_path).ok()?;
     let value: toml::Value = toml::from_str(&content).ok()?;
