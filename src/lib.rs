@@ -135,14 +135,11 @@ pub trait Subscription {
 
 // Helper used by generated code to stringify subscription path parameters
 pub(crate) fn sub_param_to_string<T: Serialize>(value: &T) -> String {
-    // For enums and basic scalars we can serialize to JSON and strip quotes if needed
-    // This keeps parity with channel naming used by Deribit (e.g., "BTC-...", "agg2", numbers)
     let json = serde_json::to_value(value).unwrap_or(Value::Null);
     match json {
         Value::String(s) => s,
         Value::Number(n) => n.to_string(),
         Value::Bool(b) => b.to_string(),
-        // Fallback: compact JSON string
         _ => json.to_string(),
     }
 }
@@ -159,7 +156,6 @@ pub struct DeribitClient {
     id_counter: AtomicU64,
     request_channel: mpsc::Sender<(RpcRequest, oneshot::Sender<Result<Value>>)>,
     subscription_channel: mpsc::Sender<(String, oneshot::Sender<broadcast::Receiver<Value>>)>,
-    // typed_subscription_channel: mpsc::Sender<(String, oneshot::Sender<broadcast::Receiver<Value>>)>,
 }
 
 impl DeribitClient {
@@ -186,10 +182,10 @@ impl DeribitClient {
                             Some(Ok(Message::Text(text))) => {
                                 match serde_json::from_str::<JsonRPCMessage>(&text) {
                                     Ok(JsonRPCMessage::Notification(notification)) => {
-                                        if let Some(tx) = subscribers.get(&notification.params.channel) {
-                                            if tx.send(notification.params.data.clone()).is_err() {
-                                                subscribers.remove(&notification.params.channel);
-                                            }
+                                        if let Some(tx) = subscribers.get(&notification.params.channel)
+                                            && tx.send(notification.params.data.clone()).is_err()
+                                        {
+                                            subscribers.remove(&notification.params.channel);
                                         }
                                     }
                                     Ok(JsonRPCMessage::OkResponse(response)) => {
@@ -205,15 +201,15 @@ impl DeribitClient {
                                         }
                                     }
                                     Err(e) => {
-                                        panic!("Received invalid json message: {}", e);
+                                        panic!("Received invalid json message: {e}");
                                     }
                                 }
                             }
                             Some(Ok(msg)) => {
-                                panic!("Received non-text message: {:?}", msg);
+                                panic!("Received non-text message: {msg:?}");
                             }
                             Some(Err(e)) => {
-                                panic!("WebSocket error: {:?}", e);
+                                panic!("WebSocket error: {e:?}");
                             }
                             None => {
                                 panic!("WebSocket connection closed");
@@ -247,7 +243,6 @@ impl DeribitClient {
             id_counter: AtomicU64::new(0),
             request_channel: request_tx,
             subscription_channel: subscription_tx,
-            // typed_subscription_channel: typed_subscription_tx,
         })
     }
 
@@ -299,7 +294,7 @@ impl DeribitClient {
         } else {
             self.call(PublicSubscribeRequest { channels }).await?
         };
-        if let Some(channel) = subscribed_channels.get(0) {
+        if let Some(channel) = subscribed_channels.first() {
             let (tx, rx) = oneshot::channel();
             self.subscription_channel
                 .send((channel.clone(), tx))

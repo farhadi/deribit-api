@@ -67,27 +67,27 @@ impl DeribitApiGen {
         for name in types.keys() {
             seen_names.insert(name.clone());
             self.ref_names
-                .insert(format!("#/components/schemas/types/{}", name), name.clone());
+                .insert(format!("#/components/schemas/types/{name}"), name.clone());
         }
         for name in schemas.keys() {
             if seen_names.insert(name.clone()) {
                 self.ref_names
-                    .insert(format!("#/components/schemas/{}", name), name.clone());
+                    .insert(format!("#/components/schemas/{name}"), name.clone());
             } else {
                 self.ref_names.insert(
-                    format!("#/components/schemas/{}", name),
-                    format!("{}_schema", name),
+                    format!("#/components/schemas/{name}"),
+                    format!("{name}_schema"),
                 );
             }
         }
         for name in parameters.keys() {
             if seen_names.insert(name.clone()) {
                 self.ref_names
-                    .insert(format!("#/components/parameters/{}", name), name.clone());
+                    .insert(format!("#/components/parameters/{name}"), name.clone());
             } else {
                 self.ref_names.insert(
-                    format!("#/components/parameters/{}", name),
-                    format!("{}_param", name),
+                    format!("#/components/parameters/{name}"),
+                    format!("{name}_param"),
                 );
             }
         }
@@ -160,7 +160,7 @@ impl DeribitApiGen {
 
             let (type_name, expanded_schema) = self
                 .expand_ref(schema_obj)
-                .unwrap_or_else(|| (format!("{}_response", method_name), schema_obj.clone()));
+                .unwrap_or_else(|| (format!("{method_name}_response"), schema_obj.clone()));
 
             // Responses use allOf: [ base_message, { properties: { result: <schema> } } ]
             expanded_schema
@@ -185,7 +185,7 @@ impl DeribitApiGen {
                         let param_obj = param.as_object()?;
                         let (type_name, param_obj) = self.expand_ref(param_obj).or_else(|| {
                             let param_name = param_obj.get("name")?.as_str()?;
-                            Some((format!("{}_{}", method_name, param_name), param_obj.clone()))
+                            Some((format!("{method_name}_{param_name}"), param_obj.clone()))
                         })?;
                         let param_name = param_obj.get("name")?.as_str()?;
                         let required = param_obj
@@ -193,7 +193,7 @@ impl DeribitApiGen {
                             .and_then(|r| r.as_bool())
                             .unwrap_or(false);
                         let schema = param_obj.get("schema")?.as_object()?;
-                        let param_type = self.determine_type(&type_name, &schema);
+                        let param_type = self.determine_type(&type_name, schema);
 
                         Some(Parameter {
                             name: param_name.to_string(),
@@ -342,9 +342,9 @@ impl DeribitApiGen {
                             let item_type_name = if let Some(description) =
                                 item_schema.get("description").and_then(|d| d.as_str())
                             {
-                                format!("{}_{}", type_name, description)
+                                format!("{type_name}_{description}")
                             } else {
-                                format!("{}_{}", type_name, i)
+                                format!("{type_name}_{i}")
                             };
                             self.determine_type(&item_type_name, item_schema)
                         })
@@ -359,7 +359,7 @@ impl DeribitApiGen {
                         let value = v.as_object()?;
                         let property_type_name =
                             if let Some(name) = value.get("name").and_then(|name| name.as_str()) {
-                                format!("{}_{}", &type_name, name)
+                                format!("{type_name}_{name}")
                             } else {
                                 type_name.clone()
                             };
@@ -389,10 +389,7 @@ impl DeribitApiGen {
                                     let (property_type_name, property) =
                                         self.expand_ref(property).or_else(|| {
                                             let key = property.get("name")?.as_str()?;
-                                            Some((
-                                                format!("{}_{}", type_name, key),
-                                                property.clone(),
-                                            ))
+                                            Some((format!("{type_name}_{key}"), property.clone()))
                                         })?;
                                     let key = property.get("name")?.as_str()?;
                                     let required = property
@@ -413,7 +410,7 @@ impl DeribitApiGen {
                         } else {
                             let mut properties_tokens = vec![];
                             for (key, value) in properties.as_object().unwrap() {
-                                let property_type_name = format!("{}_{}", type_name, key);
+                                let property_type_name = format!("{type_name}_{key}");
                                 let property_type = self.determine_type(
                                     &property_type_name,
                                     value.as_object().unwrap(),
@@ -502,8 +499,7 @@ impl DeribitApiGen {
             let channel_name = channel_key
                 .replace(".{interval}", "")
                 .replace('.', "_")
-                .replace('{', "")
-                .replace('}', "");
+                .replace(['{', '}'], "");
 
             // Collect parameters (if any)
             let params_vec = self.extract_parameters(&channel_name, channel_spec);
@@ -549,7 +545,7 @@ impl DeribitApiGen {
                 impl crate::Subscription for #channel_struct_name {
                     type Data = #notification_type;
                     fn channel_string(&self) -> String {
-                        vec![ #(#join_segments),* ].join(".")
+                        [ #(#join_segments),* ].join(".")
                     }
                 }
             });
@@ -569,7 +565,7 @@ fn field_tokens(name: &str, field_type: &TokenStream, required: bool) -> TokenSt
     let mut tokens = TokenStream::new();
     let field_name = format_ident!("{}", to_valid_snake_case(name));
 
-    if field_name.to_string() != name {
+    if field_name != name {
         tokens.extend(quote! {
             #[serde(rename = #name)]
         });
@@ -608,8 +604,8 @@ fn to_pascal_case(s: &str) -> String {
                 .collect::<String>()
         })
         .collect::<String>();
-    if result.chars().next().map_or(false, |c| c.is_ascii_digit()) {
-        format!("_{}", result)
+    if result.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        format!("_{result}")
     } else {
         result
     }
@@ -683,10 +679,10 @@ fn to_valid_snake_case(s: &str) -> String {
 }
 
 fn get_prod_spec_url() -> String {
-    if env::var("CARGO_FEATURE_LOCAL").is_ok() {
-        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-            return manifest_dir + "/deribit_api_v2.json";
-        }
+    if env::var("CARGO_FEATURE_LOCAL").is_ok()
+        && let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR")
+    {
+        return manifest_dir + "/deribit_api_v2.json";
     }
 
     env::var("DERIBIT_API_SPEC").unwrap_or(PROD_API_SPEC_URL.to_string())
