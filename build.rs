@@ -313,7 +313,7 @@ impl DeribitApiGen {
                             .collect::<Vec<_>>();
 
                         self.generated_code.extend(quote! {
-                            #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+                            #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
                             pub enum #enum_name {
                                 #[default]
                                 #(#enum_values),*
@@ -432,7 +432,7 @@ impl DeribitApiGen {
                         };
 
                         self.generated_code.extend(quote! {
-                            #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+                            #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
                             pub struct #struct_name {
                                 #(#properties),*
                             }
@@ -461,7 +461,7 @@ impl DeribitApiGen {
                 .collect::<Vec<_>>();
 
             self.generated_code.extend(quote! {
-                #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+                #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
                 pub struct #struct_name {
                     #(#fields),*
                 }
@@ -541,7 +541,7 @@ impl DeribitApiGen {
                 .collect::<Vec<_>>();
 
             self.generated_code.extend(quote! {
-                #[derive(Debug, Clone, Serialize, Deserialize)]
+                #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
                 pub struct #channel_struct_name {
                     #(#fields_tokens),*
                 }
@@ -682,24 +682,14 @@ fn to_valid_snake_case(s: &str) -> String {
     escape_rust_keyword(&sanitized)
 }
 
-fn read_manifest_spec_url() -> Option<String> {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").ok()?;
-
-    if env::var("DOCS_RS").is_ok() {
-        return Some(manifest_dir + "/deribit_api_v2.json");
+fn get_prod_spec_url() -> String {
+    if env::var("CARGO_FEATURE_LOCAL").is_ok() {
+        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+            return manifest_dir + "/deribit_api_v2.json";
+        }
     }
 
-    let cargo_toml_path = Path::new(&manifest_dir).join("Cargo.toml");
-    let content = fs::read_to_string(&cargo_toml_path).ok()?;
-    let value: toml::Value = toml::from_str(&content).ok()?;
-
-    value
-        .get("package")?
-        .get("metadata")?
-        .get("deribit")
-        .and_then(|d| d.get("api_spec_url"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
+    env::var("DERIBIT_API_SPEC").unwrap_or(PROD_API_SPEC_URL.to_string())
 }
 
 fn main() {
@@ -715,7 +705,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_TESTNET");
 
     let out_dir = env::var("OUT_DIR").unwrap();
-    let prod_spec_url = read_manifest_spec_url().unwrap_or_else(|| PROD_API_SPEC_URL.to_string());
+    let prod_spec_url = get_prod_spec_url();
     let prod_gen = DeribitApiGen::new(&prod_spec_url).unwrap();
     let dest_prod = Path::new(&out_dir).join("deribit_client_prod.rs");
     fs::write(&dest_prod, prod_gen.get_client_code()).unwrap();

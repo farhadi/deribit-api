@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/deribit-api.svg?style=flat-square&logo=rust)](https://crates.io/crates/deribit-api)
 [![docs.rs](https://img.shields.io/docsrs/deribit-api?style=flat-square)](https://docs.rs/deribit-api)
-[![CI](https://img.shields.io/github/actions/workflow/status/yourusername/deribit-api/ci.yml?branch=main&style=flat-square&logo=github)](https://github.com/yourusername/deribit-api/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/farhadi/deribit-api/ci.yml?branch=main&style=flat-square&logo=github)](https://github.com/farhadi/deribit-api/actions)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
 Type-safe, async Rust client for the Deribit WebSocket JSON‑RPC v2 API. Request/response types are generated at build time from the official API spec, and a single connection supports both RPC calls and streaming subscriptions.
@@ -232,12 +232,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## 🔧 Configuration
 
-Override the API spec URL (or point to a local file) through package metadata. The build script will use it for codegen.
+- Default spec source: production `https://www.deribit.com/static/deribit_api_v2.json`.
+- Override the API spec used for codegen at build time in one of these ways:
+  - Environment variable `DERIBIT_API_SPEC` pointing to a local file path or an `https://` URL.
+    - Examples:
+      - `DERIBIT_API_SPEC=./deribit_api_v2.json cargo build`
+      - `DERIBIT_API_SPEC=https://example.com/deribit_api_v2.json cargo build`
+  - Enable the `local` feature to force using the repository's `deribit_api_v2.json` file:
+    - `cargo build --features local`
 
-```toml
-[package.metadata.deribit]
-api_spec_url = "./deribit_api_v2.json" # or an https:// URL
-```
+- Testnet codegen: enable `testnet` to also generate Testnet types alongside production:
+  - `cargo run --features testnet --example testnet`
+  - Production types are at the crate root (`deribit_api::*`); Testnet types live under `deribit_api::testnet::*`.
+
+- The build script also sets `GENERATED_DERIBIT_CLIENT_PATH` (env var) to the formatted, generated production client file path in `target/`, which can help with debugging.
 
 ## 📚 Examples
 
