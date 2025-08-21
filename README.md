@@ -21,7 +21,7 @@ Add the crate and `tokio` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-deribit-api = "0.1.0"
+deribit-api = "0.1.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 futures-util = "0.3" # for StreamExt in subscription examples
 ```
