@@ -22,7 +22,7 @@ Add the crate and `tokio` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-deribit-api = "0.1.1"
+deribit-api = "0.1.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 futures-util = "0.3" # for StreamExt in subscription examples
 ```
@@ -136,7 +136,7 @@ let client = DeribitClient::connect(Env::Testnet).await?;
 
 ```toml
 [dependencies]
-deribit-api = { version = "0.1.1", features = ["testnet"] }
+deribit-api = { version = "0.1.2", features = ["testnet"] }
 ```
 
 When the `testnet` feature is enabled, production types live at the crate root (`deribit_api::*`), and Testnet‑generated types are available under `deribit_api::testnet::*`.
@@ -242,7 +242,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     - Enabling `bundled-spec` feature in `Cargo.toml`:
       ```toml
       [dependencies]
-      deribit-api = { version = "0.1.1", features = ["bundled-spec"] }
+      deribit-api = { version = "0.1.2", features = ["bundled-spec"] }
       ```
     - Running tests using bundled spec:
       `cargo test --features bundled-spec`
@@ -255,7 +255,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
    - Enabling `testnet` feature in `Cargo.toml`:
       ```toml
       [dependencies]
-      deribit-api = { version = "0.1.1", features = ["testnet"] }
+      deribit-api = { version = "0.1.2", features = ["testnet"] }
       ```
   - Production types are at the crate root (`deribit_api::*`); Testnet types live under `deribit_api::testnet::*`.
   - Only enable this if you need new Testnet endpoints/fields that are not available on production; otherwise you can use `Env::Testnet` with the default production spec.
