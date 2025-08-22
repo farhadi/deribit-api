@@ -679,7 +679,7 @@ fn to_valid_snake_case(s: &str) -> String {
 }
 
 fn get_prod_spec_url() -> String {
-    if env::var("CARGO_FEATURE_LOCAL").is_ok()
+    if env::var("CARGO_FEATURE_BUNDLED_SPEC").is_ok()
         && let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR")
     {
         return manifest_dir + "/deribit_api_v2.json";
@@ -699,6 +699,7 @@ fn main() {
     }
     // Feature flags are passed through env as CARGO_FEATURE_<FEATURE_NAME>
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_TESTNET");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_BUNDLED_SPEC");
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let prod_spec_url = get_prod_spec_url();

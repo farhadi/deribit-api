@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .await
             .unwrap();
-        while let Some(data) = stream.next().await {
+        while let Some(Ok(data)) = stream.next().await {
             println!("{:?}", data);
         }
     });

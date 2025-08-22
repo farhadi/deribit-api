@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut stream = client.subscribe(channel).await?;
 
-    while let Some(msg) = stream.next().await {
+    while let Some(Ok(msg)) = stream.next().await {
         println!("{:?}", msg);
     }
 

@@ -1,17 +1,11 @@
-#[cfg(not(feature = "testnet"))]
-fn main() {
-    eprintln!(
-        "This example requires the 'testnet' feature. Run with:\n  cargo run --features testnet --example testnet"
-    );
-}
-
-#[cfg(feature = "testnet")]
 use deribit_api::{DeribitClient, Env};
 
 #[cfg(feature = "testnet")]
+use deribit_api::testnet::{PublicGetCurrenciesRequest, PublicGetTimeRequest};
+
+#[cfg(not(feature = "testnet"))]
 use deribit_api::{PublicGetCurrenciesRequest, PublicGetTimeRequest};
 
-#[cfg(feature = "testnet")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to Deribit Testnet

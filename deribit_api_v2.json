@@ -19955,7 +19955,7 @@
             "required": true,
             "schema": {
               "example": 60,
-              "type": "number"
+              "type": "integer"
             }
           }
         ],

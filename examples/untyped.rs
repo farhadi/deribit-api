@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Untyped subscription
     let mut stream = client.subscribe_raw("trades.BTC-PERPETUAL.raw").await?;
 
-    while let Some(msg) = stream.next().await {
+    while let Some(Ok(msg)) = stream.next().await {
         println!("{:?}", msg);
     }
 

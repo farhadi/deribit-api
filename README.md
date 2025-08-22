@@ -11,9 +11,10 @@ Type-safe, async Rust client for the Deribit WebSocket JSON‑RPC v2 API. Reques
 
 - 🏗️ Build-time codegen from Deribit’s spec (production by default, optional Testnet)
 - ⚡ Async WebSocket JSON‑RPC 2.0 over a single multiplexed connection
-- 🦀 Strongly-typed requests, responses, and enums
+- 🦀 Strongly-typed requests, responses, channels and subscription notifications
 - 📡 Simple subscriptions API for public and private channels
 - 🔁 Concurrency-friendly: methods take `&self` (no `mut`), and the client is shareable via `Arc`
+- 💓 Automatic heartbeat handling: responds to Deribit `test_request` internally (no manual pings needed)
 
 ## 🚀 Quick Start
 
@@ -133,11 +134,14 @@ let client = DeribitClient::connect(Env::Testnet).await?;
 
 - Enable the feature to also generate Testnet types:
 
-```bash
-cargo run --features testnet --example testnet
+```toml
+[dependencies]
+deribit-api = { version = "0.1.1", features = ["testnet"] }
 ```
 
 When the `testnet` feature is enabled, production types live at the crate root (`deribit_api::*`), and Testnet‑generated types are available under `deribit_api::testnet::*`.
+
+Note: Enable the `testnet` feature only if you need endpoints or fields that exist only on Testnet. If you don't need any Testnet‑specific features, you can connect to `Env::Testnet` while using the default production spec and all overlapping APIs will work as expected.
 
 ## 🧩 API model
 
@@ -234,16 +238,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 - Default spec source: production `https://www.deribit.com/static/deribit_api_v2.json`.
 - Override the API spec used for codegen at build time in one of these ways:
-  - Environment variable `DERIBIT_API_SPEC` pointing to a local file path or an `https://` URL.
+  - Enable the `bundled-spec` feature to force using bundled `deribit_api_v2.json` file:
+    - Enabling `bundled-spec` feature in `Cargo.toml`:
+      ```toml
+      [dependencies]
+      deribit-api = { version = "0.1.1", features = ["bundled-spec"] }
+      ```
+    - Running tests using bundled spec:
+      `cargo test --features bundled-spec`
+  - Environment variable `DERIBIT_API_SPEC` pointing to a local file path or a URL.
     - Examples:
       - `DERIBIT_API_SPEC=./deribit_api_v2.json cargo build`
       - `DERIBIT_API_SPEC=https://example.com/deribit_api_v2.json cargo build`
-  - Enable the `local` feature to force using the repository's `deribit_api_v2.json` file:
-    - `cargo build --features local`
 
 - Testnet codegen: enable `testnet` to also generate Testnet types alongside production:
-  - `cargo run --features testnet --example testnet`
+   - Enabling `testnet` feature in `Cargo.toml`:
+      ```toml
+      [dependencies]
+      deribit-api = { version = "0.1.1", features = ["testnet"] }
+      ```
   - Production types are at the crate root (`deribit_api::*`); Testnet types live under `deribit_api::testnet::*`.
+  - Only enable this if you need new Testnet endpoints/fields that are not available on production; otherwise you can use `Env::Testnet` with the default production spec.
 
 - The build script also sets `GENERATED_DERIBIT_CLIENT_PATH` (env var) to the formatted, generated production client file path in `target/`, which can help with debugging.
 
@@ -260,6 +275,9 @@ cargo run --example subscription
 
 # Authentication + private endpoints
 cargo run --example authentication
+
+# Setting heartbeats
+cargo run --example heartbeat
 
 # Testnet (enables the feature and uses the Testnet endpoint)
 cargo run --features testnet --example testnet

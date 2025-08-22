@@ -32,12 +32,12 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --all-targets --features local -- -D warnings
+        run: cargo clippy --all-targets --features bundled-spec -- -D warnings
 
       - name: Build
-        run: cargo build --features local --verbose
+        run: cargo build --features bundled-spec --verbose
 
       - name: Test
-        run: cargo test --features local --all-targets --verbose
+        run: cargo test --features bundled-spec --all-targets --verbose
 
 

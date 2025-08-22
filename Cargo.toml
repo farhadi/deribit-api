@@ -8,15 +8,15 @@ repository = "https://github.com/farhadi/deribit-api"
 readme = "README.md"
 
 [package.metadata.docs.rs]
-features = ["local"]
+features = ["bundled-spec"]
 
 [features]
 default = []
 # When enabled, generate both production and testnet clients.
 # When disabled, only the production client is generated.
 testnet = []
-# When enabled, generate the client from the local spec file included in the library.
-local = []
+# When enabled, generate the client from the bundled spec file.
+bundled-spec = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

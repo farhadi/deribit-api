@@ -3,6 +3,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::wrappers::BroadcastStream;
@@ -41,8 +42,14 @@ impl std::fmt::Display for RpcError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+enum JsonRpcVersion {
+    #[serde(rename = "2.0")]
+    V2,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct RpcRequest {
-    jsonrpc: String,
+    jsonrpc: JsonRpcVersion,
     id: u64,
     method: String,
     params: Value,
@@ -50,7 +57,7 @@ struct RpcRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RpcResponseBase {
-    jsonrpc: String,
+    jsonrpc: JsonRpcVersion,
     id: u64,
     testnet: bool,
     #[serde(rename = "usIn")]
@@ -83,15 +90,48 @@ struct SubscriptionParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+enum SubscriptionMethod {
+    #[serde(rename = "subscription")]
+    Subscription,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct SubscriptionNotification {
-    jsonrpc: String,
-    method: String,
+    jsonrpc: JsonRpcVersion,
+    method: SubscriptionMethod,
     params: SubscriptionParams,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+enum HeartbeatType {
+    #[serde(rename = "heartbeat")]
+    Heartbeat,
+    #[serde(rename = "test_request")]
+    TestRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HeartbeatParams {
+    r#type: HeartbeatType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum HeartbeatMethod {
+    #[serde(rename = "heartbeat")]
+    Heartbeat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Heartbeat {
+    jsonrpc: JsonRpcVersion,
+    method: HeartbeatMethod,
+    params: HeartbeatParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum JsonRPCMessage {
+    Heartbeat(Heartbeat),
     Notification(SubscriptionNotification),
     OkResponse(RpcOkResponse),
     ErrorResponse(RpcErrorResponse),
@@ -111,7 +151,7 @@ pub enum Error {
     SubscriptionLagged(u64),
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+type Result<T> = std::result::Result<T, Error>;
 
 // ApiRequest trait for all request types
 pub trait ApiRequest: serde::Serialize {
@@ -153,7 +193,7 @@ pub enum Env {
 #[derive(Debug)]
 pub struct DeribitClient {
     authenticated: AtomicBool,
-    id_counter: AtomicU64,
+    id_counter: Arc<AtomicU64>,
     request_channel: mpsc::Sender<(RpcRequest, oneshot::Sender<Result<Value>>)>,
     subscription_channel: mpsc::Sender<(String, oneshot::Sender<broadcast::Receiver<Value>>)>,
 }
@@ -171,6 +211,9 @@ impl DeribitClient {
         let (subscription_tx, mut subscription_rx) =
             mpsc::channel::<(String, oneshot::Sender<broadcast::Receiver<Value>>)>(100);
 
+        let id_counter = Arc::new(AtomicU64::new(0));
+        let id_counter_clone = id_counter.clone();
+
         tokio::spawn(async move {
             let mut pending_requests: HashMap<u64, oneshot::Sender<Result<Value>>> = HashMap::new();
             let mut subscribers: HashMap<String, broadcast::Sender<Value>> = HashMap::new();
@@ -181,6 +224,22 @@ impl DeribitClient {
                         match msg {
                             Some(Ok(Message::Text(text))) => {
                                 match serde_json::from_str::<JsonRPCMessage>(&text) {
+                                    Ok(JsonRPCMessage::Heartbeat(heartbeat)) => {
+                                        if heartbeat.params.r#type == HeartbeatType::TestRequest {
+                                            let test_request = RpcRequest {
+                                                jsonrpc: JsonRpcVersion::V2,
+                                                id: id_counter_clone.fetch_add(1, Ordering::Relaxed),
+                                                method: "public/test".to_string(),
+                                                params: Value::Null,
+                                            };
+                                            ws_stream
+                                                .send(Message::Text(
+                                                    serde_json::to_string(&test_request).unwrap().into(),
+                                                ))
+                                                .await
+                                                .unwrap();
+                                        }
+                                    }
                                     Ok(JsonRPCMessage::Notification(notification)) => {
                                         if let Some(tx) = subscribers.get(&notification.params.channel)
                                             && tx.send(notification.params.data.clone()).is_err()
@@ -201,7 +260,7 @@ impl DeribitClient {
                                         }
                                     }
                                     Err(e) => {
-                                        panic!("Received invalid json message: {e}");
+                                        panic!("Received invalid json message: {e}\nOriginal message: {text}");
                                     }
                                 }
                             }
@@ -240,7 +299,7 @@ impl DeribitClient {
 
         Ok(Self {
             authenticated: AtomicBool::new(false),
-            id_counter: AtomicU64::new(0),
+            id_counter,
             request_channel: request_tx,
             subscription_channel: subscription_tx,
         })
@@ -252,7 +311,7 @@ impl DeribitClient {
 
     pub async fn call_raw(&self, method: &str, params: Value) -> Result<Value> {
         let request = RpcRequest {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: JsonRpcVersion::V2,
             id: self.next_id(),
             method: method.to_string(),
             params,
